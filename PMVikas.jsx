@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './PMVikas.css';
+import { usePMVikasData } from './trackerData.js';
 
 const QUOTES = [
   'Small progress still counts.',
@@ -312,11 +313,25 @@ function AttendanceTracker({ courses, setCourses, canEdit, notify }) {
   const [monthDate, setMonthDate] = useState(new Date());
   const [courseForm, setCourseForm] = useState(null);
   const [classForm, setClassForm] = useState({ date: '', topic: '', attended: true });
+  const [editingClass, setEditingClass] = useState(null);
+  const [attendanceSearch, setAttendanceSearch] = useState('');
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   const selectedCourse = courses.find((course) => course.id === selectedCourseId) || courses[0];
   const stats = selectedCourse ? courseStats(selectedCourse) : { total: 0, attended: 0, percent: 0 };
   const days = buildCalendarDays(monthDate);
   const monthLabel = monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+  const monthRecords = selectedCourse?.classes.filter((item) => item.date.startsWith(monthKey)) || [];
+  const monthAttended = monthRecords.filter((item) => item.attended).length;
+  const monthMissed = monthRecords.length - monthAttended;
+  const monthPercent = monthRecords.length ? Math.round((monthAttended / monthRecords.length) * 100) : 0;
+  const filteredRecords = (selectedCourse?.classes || [])
+    .filter((item) => item.date.startsWith(monthKey))
+    .filter((item) => item.topic.toLowerCase().includes(attendanceSearch.toLowerCase()))
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const visibleRecords = showAllRecords ? filteredRecords : filteredRecords.slice(0, 5);
 
   useEffect(() => {
     if (!selectedCourseId && courses[0]) setSelectedCourseId(courses[0].id);
@@ -372,6 +387,26 @@ function AttendanceTracker({ courses, setCourses, canEdit, notify }) {
     notify('Class added to calendar.');
   };
 
+  const saveEditedClass = (event) => {
+    event.preventDefault();
+    if (!selectedCourse || !editingClass?.date) return;
+
+    updateSelectedCourse({
+      classes: selectedCourse.classes.map((item) =>
+        item.id === editingClass.id
+          ? {
+              ...item,
+              date: editingClass.date,
+              topic: editingClass.topic || 'Class attended',
+              attended: editingClass.attended,
+            }
+          : item
+      ),
+    });
+    setEditingClass(null);
+    notify('Attendance entry updated.');
+  };
+
   const toggleClass = (classId) => {
     updateSelectedCourse({
       classes: selectedCourse.classes.map((item) =>
@@ -401,27 +436,36 @@ function AttendanceTracker({ courses, setCourses, canEdit, notify }) {
       <div className="section-heading-row">
         <h2 className="section-title">Attendance Tracker</h2>
         {canEdit && (
-          <button
-            className="primary-btn"
-            type="button"
-            onClick={() =>
-              setCourseForm({
-                id: null,
-                name: '',
-                code: '',
-                faculty: '',
-                schedule: '',
-                room: '',
-                startDate: '',
-                endDate: '',
-                classDays: '',
-                target: 75,
-                classes: [],
-              })
-            }
-          >
-            Add Course
-          </button>
+          <div className="section-button-group">
+            <button
+              className="primary-btn"
+              type="button"
+              onClick={() =>
+                setCourseForm({
+                  id: null,
+                  name: '',
+                  code: '',
+                  faculty: '',
+                  schedule: '',
+                  room: '',
+                  startDate: '',
+                  endDate: '',
+                  classDays: '',
+                  target: 75,
+                  classes: [],
+                })
+              }
+            >
+              Add Course
+            </button>
+            <button
+              className="action-btn"
+              type="button"
+              onClick={() => setClassForm({ date: localDateKey(new Date()), topic: '', attended: true })}
+            >
+              Add Attendance
+            </button>
+          </div>
         )}
       </div>
 
@@ -531,22 +575,43 @@ function AttendanceTracker({ courses, setCourses, canEdit, notify }) {
             </Card>
 
             <Card className="side-editor-card">
-              <h3 className="card-title">Class Log</h3>
+              <h3 className="card-title">Monthly Summary</h3>
+              <div className="attendance-month-controls">
+                <label className="field-with-label">
+                  Filter by month
+                  <input
+                    type="month"
+                    value={monthKey}
+                    onChange={(e) => {
+                      const [year, month] = e.target.value.split('-').map(Number);
+                      if (year && month) setMonthDate(new Date(year, month - 1, 1));
+                    }}
+                  />
+                </label>
+                <input
+                  value={attendanceSearch}
+                  onChange={(e) => setAttendanceSearch(e.target.value)}
+                  placeholder="Search by subject or title"
+                />
+              </div>
+              <div className="attendance-summary-cards">
+                <div><strong>{monthPercent}%</strong><span>Attendance</span></div>
+                <div><strong>{monthAttended}</strong><span>Attended</span></div>
+                <div><strong>{monthMissed}</strong><span>Missed</span></div>
+              </div>
               {canEdit && (
                 <form className="stack-form" onSubmit={addClass}>
                   <input type="date" value={classForm.date} onChange={(e) => setClassForm({ ...classForm, date: e.target.value })} />
-                  <input value={classForm.topic} onChange={(e) => setClassForm({ ...classForm, topic: e.target.value })} placeholder="Class topic" />
-                  <label className="inline-check">
-                    <input type="checkbox" checked={classForm.attended} onChange={(e) => setClassForm({ ...classForm, attended: e.target.checked })} />
-                    Attended
-                  </label>
-                  <button className="primary-btn" type="submit">Add Class</button>
+                  <input value={classForm.topic} onChange={(e) => setClassForm({ ...classForm, topic: e.target.value })} placeholder="Title / subject name" />
+                  <select value={classForm.attended ? 'attended' : 'missed'} onChange={(e) => setClassForm({ ...classForm, attended: e.target.value === 'attended' })}>
+                    <option value="attended">Attended</option>
+                    <option value="missed">Missed</option>
+                  </select>
+                  <button className="primary-btn" type="submit">Add Attendance</button>
                 </form>
               )}
               <div className="log-list">
-                {selectedCourse.classes
-                  .slice()
-                  .sort((a, b) => b.date.localeCompare(a.date))
+                {visibleRecords
                   .map((item) => (
                     <div className="log-item" key={item.id}>
                       <div>
@@ -554,13 +619,44 @@ function AttendanceTracker({ courses, setCourses, canEdit, notify }) {
                         <span>{item.topic}</span>
                       </div>
                       <span className={item.attended ? 'good-text' : 'risk-text'}>{item.attended ? 'Attended' : 'Missed'}</span>
-                      {canEdit && <button className="delete-btn" type="button" onClick={() => deleteClass(item.id)}>Delete</button>}
+                      {canEdit && (
+                        <div className="record-actions">
+                          <button className="action-btn" type="button" onClick={() => setEditingClass(item)}>Edit</button>
+                          <button className="delete-btn" type="button" onClick={() => deleteClass(item.id)}>Delete</button>
+                        </div>
+                      )}
                     </div>
                   ))}
+                {!visibleRecords.length && <p className="empty-state">No attendance records for this month.</p>}
               </div>
+              {filteredRecords.length > 5 && (
+                <button className="action-btn view-all-btn" type="button" onClick={() => setShowAllRecords(!showAllRecords)}>
+                  {showAllRecords ? 'Show Recent 5' : 'View All'}
+                </button>
+              )}
             </Card>
           </div>
         </>
+      )}
+
+      {editingClass && (
+        <div className="edit-modal-backdrop" onClick={() => setEditingClass(null)}>
+          <Card className="edit-modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-attendance-title" onClick={(event) => event.stopPropagation()}>
+            <h3 id="edit-attendance-title" className="card-title">Edit Attendance</h3>
+            <form className="stack-form" onSubmit={saveEditedClass}>
+              <input type="date" value={editingClass.date} onChange={(e) => setEditingClass({ ...editingClass, date: e.target.value })} />
+              <input value={editingClass.topic} onChange={(e) => setEditingClass({ ...editingClass, topic: e.target.value })} placeholder="Title / subject name" />
+              <select value={editingClass.attended ? 'attended' : 'missed'} onChange={(e) => setEditingClass({ ...editingClass, attended: e.target.value === 'attended' })}>
+                <option value="attended">Attended</option>
+                <option value="missed">Missed</option>
+              </select>
+              <div className="form-actions">
+                <button className="primary-btn" type="submit">Save</button>
+                <button className="action-btn" type="button" onClick={() => setEditingClass(null)}>Cancel</button>
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
     </section>
   );
@@ -1062,47 +1158,28 @@ function BlogTracker({ posts, setPosts, canEdit, notify, searchQuery }) {
   );
 }
 
-export default function PMVikasTracker() {
+export default function PMVikasTracker({ darkMode, setDarkMode }) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
   const [searchQuery, setSearchQuery] = useState('');
   const [notification, setNotification] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
-  const [courses, setCourses] = useState(() => getStored('pmVikas_courses', SAMPLE_COURSES).map(normalizeCourse));
-  const [projects, setProjects] = useState(() => getStored('pmVikas_projects_v2', SAMPLE_PROJECTS));
-  const [assignments, setAssignments] = useState(() => getStored('pmVikas_assignments_v2', SAMPLE_ASSIGNMENTS));
-  const [blogPosts, setBlogPosts] = useState(() => getStored('pmVikas_blog_v2', SAMPLE_BLOG_POSTS).map(normalizeBlogPost));
   const [quote, setQuote] = useState(QUOTES[0]);
-
-  useEffect(() => localStorage.setItem('pmVikas_courses', JSON.stringify(courses)), [courses]);
-  useEffect(() => localStorage.setItem('pmVikas_projects_v2', JSON.stringify(projects)), [projects]);
-  useEffect(() => localStorage.setItem('pmVikas_assignments_v2', JSON.stringify(assignments)), [assignments]);
-  useEffect(() => localStorage.setItem('pmVikas_blog_v2', JSON.stringify(blogPosts)), [blogPosts]);
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode);
-    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-  }, [darkMode]);
+  const {
+    courses,
+    setCourses,
+    projects,
+    setProjects,
+    assignments,
+    setAssignments,
+    blogPosts,
+    setBlogPosts,
+    stats: allStats,
+  } = usePMVikasData();
 
   const notify = (message, type = 'success') => {
     setNotification({ message, type });
     window.setTimeout(() => setNotification(null), 2800);
   };
-
-  const allStats = useMemo(() => {
-    const courseTotals = courses.map(courseStats);
-    const totalClasses = courseTotals.reduce((sum, item) => sum + item.total, 0);
-    const attendedClasses = courseTotals.reduce((sum, item) => sum + item.attended, 0);
-    return {
-      attendance: totalClasses ? Math.round((attendedClasses / totalClasses) * 100) : 0,
-      courseBreakdown: courses.map((course) => ({
-        ...course,
-        stats: courseStats(course),
-      })),
-      pendingAssignments: assignments.filter((item) => item.status !== 'submitted').length,
-      activeProjects: projects.filter((item) => item.status === 'in-progress').length,
-      uploadedDocs: assignments.reduce((sum, item) => sum + item.documents.length, 0),
-    };
-  }, [assignments, courses, projects]);
 
   const unlock = (pin) => {
     const storedPin = localStorage.getItem('pmVikas_ownerPin') || DEFAULT_PIN;

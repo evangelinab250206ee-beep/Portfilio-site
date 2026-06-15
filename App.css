@@ -12,6 +12,10 @@
   border-bottom: 1px solid var(--border);
 }
 
+:root[data-theme='light'] .nav {
+  background: rgba(255,255,255,0.86);
+}
+
 .nav-brand {
   display: flex;
   align-items: center;
@@ -80,6 +84,26 @@
   border-radius: 2px;
   transition: all 0.2s;
   font-family: var(--font-body);
+}
+
+.nav-theme-toggle {
+  margin-left: 1rem;
+  min-width: 66px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.nav-theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .nav-cta:hover {
@@ -211,6 +235,7 @@ main { padding-top: 64px; min-height: 100vh; }
   .nav { padding: 0 1.2rem; }
   .nav-name { display: none; }
   .nav-link { padding: 0 0.9rem; font-size: 0.72rem; }
+  .nav-theme-toggle { margin-left: 0.5rem; padding: 6px 10px; min-width: 58px; font-size: 0.68rem; }
   .nav-cta { margin-left: 0.5rem; padding: 6px 12px; font-size: 0.7rem; }
   .contact-modal-actions { grid-template-columns: 1fr; }
 }

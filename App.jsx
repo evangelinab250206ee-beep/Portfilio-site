@@ -1,12 +1,11 @@
-import React, { useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import Portfolio from './Portfolio.jsx'
 import PMVikas from './PMVikas.jsx'
 import Insights from './Insights.jsx'
 import './App.css'
 
-function Nav() {
-  const loc = useLocation()
+function Nav({ darkMode, onToggleTheme }) {
   const [showContact, setShowContact] = useState(false)
 
   return (
@@ -27,6 +26,9 @@ function Nav() {
             <span className="nav-num">03</span> Insights
           </NavLink>
         </div>
+        <button className="nav-theme-toggle" type="button" onClick={onToggleTheme}>
+          {darkMode ? 'Light' : 'Dark'}
+        </button>
         <button className="nav-cta" type="button" onClick={() => setShowContact(true)}>Hire Me</button>
       </nav>
 
@@ -54,13 +56,20 @@ function Nav() {
 }
 
 export default function App() {
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') !== 'false')
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', darkMode ? 'true' : 'false')
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
+
   return (
     <BrowserRouter>
-      <Nav />
+      <Nav darkMode={darkMode} onToggleTheme={() => setDarkMode((mode) => !mode)} />
       <main>
         <Routes>
           <Route path="/" element={<Portfolio />} />
-          <Route path="/pm-vikas" element={<PMVikas />} />
+          <Route path="/pm-vikas" element={<PMVikas darkMode={darkMode} setDarkMode={setDarkMode} />} />
           <Route path="/insights" element={<Insights />} />
         </Routes>
       </main>

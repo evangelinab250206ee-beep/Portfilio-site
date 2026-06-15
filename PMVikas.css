@@ -45,6 +45,10 @@
   border-bottom: 1px solid var(--pm-border);
 }
 
+:root[data-theme='light'] .pm-vikas-container .pm-header {
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .pm-vikas-container .header-left {
   display: flex;
   flex-direction: column;
@@ -105,10 +109,13 @@
 }
 
 .pm-vikas-container .theme-toggle {
-  width: 40px;
+  min-width: 68px;
   height: 40px;
   border-radius: 3px;
-  font-size: 1rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   transition: background 0.2s, color 0.2s;
 }
 
@@ -683,6 +690,12 @@
   margin-bottom: 1.6rem;
 }
 
+.pm-vikas-container .section-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .pm-vikas-container .section-heading-row .section-title {
   margin-bottom: 0;
 }
@@ -942,6 +955,65 @@
 .pm-vikas-container .inline-check input {
   width: 18px;
   min-height: 18px;
+}
+
+.pm-vikas-container .attendance-month-controls {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.pm-vikas-container .attendance-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.pm-vikas-container .attendance-summary-cards div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem;
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-border);
+  border-radius: 3px;
+}
+
+.pm-vikas-container .attendance-summary-cards strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--pm-text);
+  font-weight: 400;
+}
+
+.pm-vikas-container .attendance-summary-cards span,
+.pm-vikas-container .empty-state {
+  color: var(--pm-text3);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pm-vikas-container .view-all-btn {
+  width: 100%;
+  margin-top: 0.8rem;
+}
+
+.pm-vikas-container .edit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(8, 11, 15, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.pm-vikas-container .edit-modal-card {
+  width: min(420px, 100%);
 }
 
 .pm-vikas-container .log-item,
@@ -1333,6 +1405,10 @@
   }
 
   .pm-vikas-container .log-item {
+    grid-template-columns: 1fr;
+  }
+
+  .pm-vikas-container .attendance-summary-cards {
     grid-template-columns: 1fr;
   }
 

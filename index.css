@@ -19,6 +19,24 @@
   --font-mono: 'DM Mono', monospace;
 }
 
+:root[data-theme='light'] {
+  --bg: #f4f8fb;
+  --bg2: #ffffff;
+  --bg3: #eaf1f7;
+  --surface: #eef5f8;
+  --surface2: #e4eef5;
+  --border: #cfdae6;
+  --border2: #aabccd;
+  --accent: #008f80;
+  --accent2: #006fd6;
+  --accent3: #d85a26;
+  --text: #121924;
+  --text2: #42566d;
+  --text3: #718296;
+  --gold: #9f7418;
+  --red: #c82745;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
