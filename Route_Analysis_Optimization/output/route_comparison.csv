@@ -1,0 +1,4 @@
+route,total_distance_km,total_elevation_gain_m,total_elevation_loss_m,average_slope_percent,maximum_slope_percent,total_solar_energy_kwh,total_energy_consumed_kwh,net_energy_consumption_kwh,final_battery_remaining_percent,final_remaining_range_km,estimated_travel_time_hours,average_weather_risk,battery_component,solar_component,travel_time_component,weather_component,route_score
+route_A,520.7,1515.0,616.0,0.395,4.327,1.303,54.159,52.856,11.91,70.37,9.47,0.095,0.1191,0.9961773700305809,1.0,0.905,0.5490943425076452
+route_B,537.06,1373.0,474.0,0.336,1.663,1.305,55.154,53.85,10.25,61.34,9.76,0.094,0.1025,0.9977064220183486,0.9702868852459017,0.906,0.5368196382914724
+route_C,542.86,1650.0,751.0,0.431,4.327,1.308,56.779,55.472,7.55,44.32,9.87,0.093,0.0755,1.0,0.9594731509625128,0.907,0.5223709726443769
