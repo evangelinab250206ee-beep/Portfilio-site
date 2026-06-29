@@ -223,11 +223,93 @@ export const readFiles = (fileList, acceptType = 'any') => {
 
 export const getStored = (key, fallback) => {
   try {
+    if (typeof localStorage === 'undefined') return fallback;
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : fallback;
   } catch {
     return fallback;
   }
+};
+
+const DB_NAME = 'pm-vikas-durable-storage';
+const DB_VERSION = 1;
+const DB_STORE = 'records';
+
+const canUseBrowserStorage = () => typeof window !== 'undefined';
+
+const openStorageDatabase = () =>
+  new Promise((resolve, reject) => {
+    if (!canUseBrowserStorage() || !window.indexedDB) {
+      resolve(null);
+      return;
+    }
+
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+const readFromIndexedDB = async (key) => {
+  const db = await openStorageDatabase();
+  if (!db) return undefined;
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(DB_STORE, 'readonly');
+    const request = transaction.objectStore(DB_STORE).get(key);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => db.close();
+    transaction.onerror = () => db.close();
+  });
+};
+
+const writeToIndexedDB = async (key, value) => {
+  const db = await openStorageDatabase();
+  if (!db) return;
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(DB_STORE, 'readwrite');
+    transaction.objectStore(DB_STORE).put(value, key);
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      db.close();
+      reject(transaction.error);
+    };
+  });
+};
+
+const getStoredDurable = async (key, fallback) => {
+  try {
+    const saved = await readFromIndexedDB(key);
+    return saved === undefined ? getStored(key, fallback) : saved;
+  } catch {
+    return getStored(key, fallback);
+  }
+};
+
+const setStoredDurable = async (key, value) => {
+  const serialized = JSON.stringify(value);
+
+  try {
+    localStorage.setItem(key, serialized);
+  } catch {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // IndexedDB below is the durable source when localStorage is full.
+    }
+  }
+
+  await writeToIndexedDB(key, value);
 };
 
 export const normalizeCourse = (course) => ({
@@ -263,11 +345,37 @@ const broadcast = () => window.dispatchEvent(new Event('pm-vikas-data-change'));
 
 function useStoredState(key, fallback, normalize = (value) => value) {
   const [value, setValue] = useState(() => normalize(getStored(key, fallback)));
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(value));
-    broadcast();
-  }, [key, value]);
+    let active = true;
+
+    getStoredDurable(key, fallback)
+      .then((saved) => {
+        if (active) setValue(normalize(saved));
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [key]);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    setStoredDurable(key, value)
+      .catch(() => {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+          // The UI should keep working even if browser storage is unavailable.
+        }
+      })
+      .finally(broadcast);
+  }, [key, ready, value]);
 
   return [value, setValue];
 }
@@ -330,19 +438,29 @@ export function useTrackerSnapshot() {
   }));
 
   useEffect(() => {
-    const refresh = () => {
+    let active = true;
+
+    const refresh = async () => {
+      const nextSnapshot = {
+        courses: (await getStoredDurable('pmVikas_courses', SAMPLE_COURSES)).map(normalizeCourse),
+        projects: await getStoredDurable('pmVikas_projects_v2', SAMPLE_PROJECTS),
+        assignments: await getStoredDurable('pmVikas_assignments_v2', SAMPLE_ASSIGNMENTS),
+        blogPosts: (await getStoredDurable('pmVikas_blog_v2', SAMPLE_BLOG_POSTS)).map(normalizeBlogPost),
+        portfolio: await getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO),
+      };
+
+      if (!active) return;
       setSnapshot({
-        courses: getStored('pmVikas_courses', SAMPLE_COURSES).map(normalizeCourse),
-        projects: getStored('pmVikas_projects_v2', SAMPLE_PROJECTS),
-        assignments: getStored('pmVikas_assignments_v2', SAMPLE_ASSIGNMENTS),
-        blogPosts: getStored('pmVikas_blog_v2', SAMPLE_BLOG_POSTS).map(normalizeBlogPost),
-        portfolio: getStored('portfolio_cms_v1', DEFAULT_PORTFOLIO),
+        ...nextSnapshot,
       });
     };
+
+    refresh();
     window.addEventListener('storage', refresh);
     window.addEventListener('pm-vikas-data-change', refresh);
     window.addEventListener('portfolio-data-change', refresh);
     return () => {
+      active = false;
       window.removeEventListener('storage', refresh);
       window.removeEventListener('pm-vikas-data-change', refresh);
       window.removeEventListener('portfolio-data-change', refresh);
@@ -357,11 +475,37 @@ export function useTrackerSnapshot() {
 
 export function usePortfolioData() {
   const [portfolio, setPortfolio] = useState(() => getStored('portfolio_cms_v1', DEFAULT_PORTFOLIO));
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('portfolio_cms_v1', JSON.stringify(portfolio));
-    window.dispatchEvent(new Event('portfolio-data-change'));
-  }, [portfolio]);
+    let active = true;
+
+    getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO)
+      .then((saved) => {
+        if (active) setPortfolio(saved);
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    setStoredDurable('portfolio_cms_v1', portfolio)
+      .catch(() => {
+        try {
+          localStorage.setItem('portfolio_cms_v1', JSON.stringify(portfolio));
+        } catch {
+          // Keep the in-memory edit visible for this session.
+        }
+      })
+      .finally(() => window.dispatchEvent(new Event('portfolio-data-change')));
+  }, [portfolio, ready]);
 
   return [portfolio, setPortfolio];
 }
