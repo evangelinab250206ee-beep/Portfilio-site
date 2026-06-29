@@ -1,0 +1,68 @@
+# Vikas Portfolio — React App
+
+A professional 3-page portfolio built with React + Vite.
+
+## Pages
+1. **Portfolio** (`/`) — Professional achievements, projects, skills, awards
+2. **PM Vikas Tracker** (`/pm-vikas`) — Track PM scheme projects with milestones & dashboard
+3. **Insights** (`/insights`) — PM knowledge quiz, scheme directory, tools stack
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173
+
+## Deploy to Vercel (Free)
+
+### Option 1 — Vercel CLI (Recommended)
+
+```bash
+# Install Vercel CLI
+npm install -g vercel
+
+# From the portfolio folder
+vercel
+
+# Follow the prompts:
+# - Link to existing project? No
+# - Project name: vikas-portfolio
+# - Framework: Vite
+# - Build command: npm run build
+# - Output directory: dist
+```
+
+Your site will be live at `https://vikas-portfolio.vercel.app`
+
+### Option 2 — GitHub + Vercel Dashboard
+
+1. Push this folder to a GitHub repo:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial portfolio"
+   git remote add origin https://github.com/YOUR_USERNAME/vikas-portfolio.git
+   git push -u origin main
+   ```
+
+2. Go to https://vercel.com → **New Project**
+3. Import your GitHub repo
+4. Framework: **Vite**
+5. Build command: `npm run build`
+6. Output: `dist`
+7. Click **Deploy** → Done!
+
+### Option 3 — Vercel Web Upload
+
+1. Run `npm run build` locally
+2. Go to https://vercel.com → **New Project** → **Upload**
+3. Drag and drop the `dist/` folder
+
+## Customize
+
+- **Personal info**: Edit `src/pages/Portfolio.jsx` — update name, bio, projects, awards
+- **PM Projects**: Edit `src/pages/PMVikas.jsx` — update the `initialProjects` array
+- **Colors**: Edit `src/index.css` — change CSS variables in `:root`
