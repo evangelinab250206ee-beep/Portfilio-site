@@ -263,6 +263,12 @@
   background: rgba(255, 69, 96, 0.08);
 }
 
+.pm-vikas-container button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none !important;
+}
+
 .pm-vikas-container .card,
 .pm-vikas-container .glass-morphism,
 .pm-vikas-container .kanban-column {
@@ -700,12 +706,17 @@
   margin-bottom: 0;
 }
 
-.pm-vikas-container .security-panel {
+.pm-vikas-container .security-panel,
+.pm-vikas-container .cloud-sync-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.pm-vikas-container .cloud-sync-panel {
+  margin-top: -0.75rem;
 }
 
 .pm-vikas-container .security-actions,
@@ -1504,6 +1515,7 @@
   }
 
   .pm-vikas-container .security-panel,
+  .pm-vikas-container .cloud-sync-panel,
   .pm-vikas-container .section-heading-row,
   .pm-vikas-container .calendar-toolbar,
   .pm-vikas-container .detail-header {

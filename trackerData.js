@@ -238,6 +238,12 @@ const DB_STORE = 'records';
 
 const canUseBrowserStorage = () => typeof window !== 'undefined';
 const remoteTable = import.meta.env.VITE_SUPABASE_TABLE || 'tracker_records';
+const PM_SYNC_KEYS = {
+  courses: 'pmVikas_courses',
+  projects: 'pmVikas_projects_v2',
+  assignments: 'pmVikas_assignments_v2',
+  blogPosts: 'pmVikas_blog_v2',
+};
 
 const getRemoteConfig = () => {
   const url = import.meta.env.VITE_SUPABASE_URL;
@@ -246,6 +252,8 @@ const getRemoteConfig = () => {
   if (!url || !anonKey) return null;
   return { url: url.replace(/\/$/, ''), anonKey };
 };
+
+export const isRemoteSyncConfigured = () => Boolean(getRemoteConfig());
 
 const remoteHeaders = (anonKey) => ({
   apikey: anonKey,
@@ -287,6 +295,44 @@ const writeToRemote = async (key, value) => {
   });
 
   if (!response.ok) throw new Error('Remote write failed');
+};
+
+export const uploadPMVikasChanges = async ({ courses, projects, assignments, blogPosts }) => {
+  if (!isRemoteSyncConfigured()) {
+    throw new Error('Cloud sync is not configured');
+  }
+
+  await Promise.all([
+    setStoredDurable(PM_SYNC_KEYS.courses, courses),
+    setStoredDurable(PM_SYNC_KEYS.projects, projects),
+    setStoredDurable(PM_SYNC_KEYS.assignments, assignments),
+    setStoredDurable(PM_SYNC_KEYS.blogPosts, blogPosts),
+  ]);
+};
+
+export const downloadPMVikasChanges = async () => {
+  if (!isRemoteSyncConfigured()) {
+    throw new Error('Cloud sync is not configured');
+  }
+
+  const [courses, projects, assignments, blogPosts] = await Promise.all([
+    getStoredDurable(PM_SYNC_KEYS.courses, SAMPLE_COURSES),
+    getStoredDurable(PM_SYNC_KEYS.projects, SAMPLE_PROJECTS),
+    getStoredDurable(PM_SYNC_KEYS.assignments, SAMPLE_ASSIGNMENTS),
+    getStoredDurable(PM_SYNC_KEYS.blogPosts, SAMPLE_BLOG_POSTS),
+  ]);
+
+  return {
+    courses: courses.map(normalizeCourse),
+    projects,
+    assignments,
+    blogPosts: blogPosts.map(normalizeBlogPost),
+  };
+};
+
+export const requestPMVikasRefresh = () => {
+  if (!canUseBrowserStorage()) return;
+  window.dispatchEvent(new Event('pm-vikas-remote-refresh'));
 };
 
 const openStorageDatabase = () =>
@@ -421,19 +467,25 @@ function useStoredState(key, fallback, normalize = (value) => value) {
     let active = true;
 
     const refresh = () =>
-      getStoredDurable(key, fallback).then((saved) => {
-        if (active) setValue(normalize(saved));
-      });
+      getStoredDurable(key, fallback)
+        .then((saved) => {
+          if (active) setValue(normalize(saved));
+        })
+        .catch(() => {
+          // Keep the current browser state when cloud sync is unavailable.
+        });
 
     refresh()
       .finally(() => {
         if (active) setReady(true);
       });
+    const refreshTimer = window.setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('pm-vikas-remote-refresh', refresh);
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('pm-vikas-remote-refresh', refresh);
     };
@@ -457,10 +509,10 @@ function useStoredState(key, fallback, normalize = (value) => value) {
 }
 
 export function usePMVikasData() {
-  const [courses, setCourses] = useStoredState('pmVikas_courses', SAMPLE_COURSES, (items) => items.map(normalizeCourse));
-  const [projects, setProjects] = useStoredState('pmVikas_projects_v2', SAMPLE_PROJECTS);
-  const [assignments, setAssignments] = useStoredState('pmVikas_assignments_v2', SAMPLE_ASSIGNMENTS);
-  const [blogPosts, setBlogPosts] = useStoredState('pmVikas_blog_v2', SAMPLE_BLOG_POSTS, (items) => items.map(normalizeBlogPost));
+  const [courses, setCourses] = useStoredState(PM_SYNC_KEYS.courses, SAMPLE_COURSES, (items) => items.map(normalizeCourse));
+  const [projects, setProjects] = useStoredState(PM_SYNC_KEYS.projects, SAMPLE_PROJECTS);
+  const [assignments, setAssignments] = useStoredState(PM_SYNC_KEYS.assignments, SAMPLE_ASSIGNMENTS);
+  const [blogPosts, setBlogPosts] = useStoredState(PM_SYNC_KEYS.blogPosts, SAMPLE_BLOG_POSTS, (items) => items.map(normalizeBlogPost));
 
   const stats = useMemo(() => buildPMVikasStats({ courses, projects, assignments, blogPosts }), [courses, projects, assignments, blogPosts]);
 
@@ -557,19 +609,25 @@ export function usePortfolioData() {
     let active = true;
 
     const refresh = () =>
-      getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO).then((saved) => {
-        if (active) setPortfolio(saved);
-      });
+      getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO)
+        .then((saved) => {
+          if (active) setPortfolio(saved);
+        })
+        .catch(() => {
+          // Keep the current browser state when cloud sync is unavailable.
+        });
 
     refresh()
       .finally(() => {
         if (active) setReady(true);
       });
+    const refreshTimer = window.setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
     window.addEventListener('portfolio-remote-refresh', refresh);
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
       window.removeEventListener('focus', refresh);
       window.removeEventListener('portfolio-remote-refresh', refresh);
     };

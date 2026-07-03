@@ -2,7 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import './PMVikas.css';
-import { usePMVikasData } from './trackerData.js';
+import {
+  downloadPMVikasChanges,
+  isRemoteSyncConfigured,
+  uploadPMVikasChanges,
+  usePMVikasData,
+} from './trackerData.js';
 
 const QUOTES = [
   'Small progress still counts.',
@@ -341,6 +346,29 @@ function SecurityPanel({ canEdit, onUnlock, onLock, onChangePin }) {
             </button>
           </>
         )}
+      </div>
+    </Card>
+  );
+}
+
+function CloudSyncPanel({ enabled, syncing, onUpload, onDownload }) {
+  return (
+    <Card className="cloud-sync-panel">
+      <div>
+        <span className={`lock-badge ${enabled ? 'open' : ''}`}>{enabled ? 'Cloud sync on' : 'Cloud sync off'}</span>
+        <p className="security-copy">
+          {enabled
+            ? 'Upload this device after edits, or get latest changes made on another device.'
+            : 'Add Supabase environment variables in Vercel to sync changes across devices.'}
+        </p>
+      </div>
+      <div className="security-actions">
+        <button className="action-btn" type="button" onClick={onDownload} disabled={!enabled || syncing}>
+          Get Latest
+        </button>
+        <button className="primary-btn" type="button" onClick={onUpload} disabled={!enabled || syncing}>
+          {syncing ? 'Syncing' : 'Upload This Device'}
+        </button>
       </div>
     </Card>
   );
@@ -1262,6 +1290,7 @@ export default function PMVikasTracker({ darkMode, setDarkMode }) {
   const [notification, setNotification] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   const [quote, setQuote] = useState(QUOTES[0]);
+  const [syncing, setSyncing] = useState(false);
   const {
     courses,
     setCourses,
@@ -1277,6 +1306,36 @@ export default function PMVikasTracker({ darkMode, setDarkMode }) {
   const notify = (message, type = 'success') => {
     setNotification({ message, type });
     window.setTimeout(() => setNotification(null), 2800);
+  };
+
+  const cloudSyncEnabled = isRemoteSyncConfigured();
+
+  const uploadDeviceChanges = async () => {
+    setSyncing(true);
+    try {
+      await uploadPMVikasChanges({ courses, projects, assignments, blogPosts });
+      notify('This device uploaded tracker changes.');
+    } catch {
+      notify('Cloud sync is not ready. Check Supabase and Vercel env vars.', 'error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const downloadLatestChanges = async () => {
+    setSyncing(true);
+    try {
+      const latest = await downloadPMVikasChanges();
+      setCourses(latest.courses);
+      setProjects(latest.projects);
+      setAssignments(latest.assignments);
+      setBlogPosts(latest.blogPosts);
+      notify('Latest tracker changes loaded.');
+    } catch {
+      notify('Could not load cloud changes. Check Supabase and Vercel env vars.', 'error');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const unlock = (pin) => {
@@ -1340,6 +1399,12 @@ export default function PMVikasTracker({ darkMode, setDarkMode }) {
             notify('Edit mode locked.');
           }}
           onChangePin={changePin}
+        />
+        <CloudSyncPanel
+          enabled={cloudSyncEnabled}
+          syncing={syncing}
+          onUpload={uploadDeviceChanges}
+          onDownload={downloadLatestChanges}
         />
 
         {activeTab === 'dashboard' && (
