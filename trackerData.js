@@ -210,6 +210,7 @@ export const readFiles = (fileList, acceptType = 'any') => {
             resolve({
               id: Date.now() + Math.random(),
               name: file.name,
+              path: file.webkitRelativePath || file.name,
               type: file.type || 'application/octet-stream',
               size: file.size,
               dataUrl: reader.result,

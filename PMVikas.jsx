@@ -154,6 +154,7 @@ const readFiles = (fileList, acceptType = 'any') => {
             resolve({
               id: Date.now() + Math.random(),
               name: file.name,
+              path: file.webkitRelativePath || file.name,
               type: file.type || 'application/octet-stream',
               size: file.size,
               dataUrl: reader.result,
@@ -986,8 +987,12 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                 <div className="record-actions assignment-actions">
                   <button className="action-btn" type="button" onClick={() => setDraft(assignment)}>Edit</button>
                   <label className="action-btn upload-inline">
-                    Upload
+                    Upload Files
                     <input type="file" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
+                  </label>
+                  <label className="action-btn upload-inline">
+                    Upload Folder
+                    <input type="file" multiple webkitdirectory="" directory="" onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
                   </label>
                   <button className="delete-btn" type="button" onClick={() => setAssignments(assignments.filter((item) => item.id !== assignment.id))}>Delete</button>
                 </div>
@@ -1013,6 +1018,7 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                         <strong>{doc.name}</strong>
                         <span>{Math.round((doc.size || 0) / 1024)} KB</span>
                       </div>
+                      {doc.path && doc.path !== doc.name && <p className="folder-path">{doc.path}</p>}
                       {canEdit && <button className="delete-btn" type="button" onClick={() => removeDocument(assignment.id, doc.id)}>Remove</button>}
                     </div>
                   );
