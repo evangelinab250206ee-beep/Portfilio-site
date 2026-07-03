@@ -237,6 +237,57 @@ const DB_VERSION = 1;
 const DB_STORE = 'records';
 
 const canUseBrowserStorage = () => typeof window !== 'undefined';
+const remoteTable = import.meta.env.VITE_SUPABASE_TABLE || 'tracker_records';
+
+const getRemoteConfig = () => {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) return null;
+  return { url: url.replace(/\/$/, ''), anonKey };
+};
+
+const remoteHeaders = (anonKey) => ({
+  apikey: anonKey,
+  Authorization: `Bearer ${anonKey}`,
+  'Content-Type': 'application/json',
+});
+
+const readFromRemote = async (key) => {
+  const config = getRemoteConfig();
+  if (!config || typeof fetch === 'undefined') return undefined;
+
+  const response = await fetch(
+    `${config.url}/rest/v1/${remoteTable}?id=eq.${encodeURIComponent(key)}&select=value`,
+    {
+      headers: remoteHeaders(config.anonKey),
+    }
+  );
+
+  if (!response.ok) throw new Error('Remote read failed');
+  const rows = await response.json();
+  return rows[0]?.value;
+};
+
+const writeToRemote = async (key, value) => {
+  const config = getRemoteConfig();
+  if (!config || typeof fetch === 'undefined') return;
+
+  const response = await fetch(`${config.url}/rest/v1/${remoteTable}`, {
+    method: 'POST',
+    headers: {
+      ...remoteHeaders(config.anonKey),
+      Prefer: 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify({
+      id: key,
+      value,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  if (!response.ok) throw new Error('Remote write failed');
+};
 
 const openStorageDatabase = () =>
   new Promise((resolve, reject) => {
@@ -290,14 +341,27 @@ const writeToIndexedDB = async (key, value) => {
 
 const getStoredDurable = async (key, fallback) => {
   try {
-    const saved = await readFromIndexedDB(key);
-    return saved === undefined ? getStored(key, fallback) : saved;
+    const localSaved = await readFromIndexedDB(key);
+    const localValue = localSaved === undefined ? getStored(key, fallback) : localSaved;
+    const remoteValue = await readFromRemote(key);
+
+    if (remoteValue !== undefined) {
+      await setStoredLocal(key, remoteValue);
+      return remoteValue;
+    }
+
+    return localValue;
   } catch {
-    return getStored(key, fallback);
+    try {
+      const saved = await readFromIndexedDB(key);
+      return saved === undefined ? getStored(key, fallback) : saved;
+    } catch {
+      return getStored(key, fallback);
+    }
   }
 };
 
-const setStoredDurable = async (key, value) => {
+const setStoredLocal = async (key, value) => {
   const serialized = JSON.stringify(value);
 
   try {
@@ -311,6 +375,11 @@ const setStoredDurable = async (key, value) => {
   }
 
   await writeToIndexedDB(key, value);
+};
+
+const setStoredDurable = async (key, value) => {
+  await setStoredLocal(key, value);
+  await writeToRemote(key, value);
 };
 
 export const normalizeCourse = (course) => ({
@@ -351,16 +420,22 @@ function useStoredState(key, fallback, normalize = (value) => value) {
   useEffect(() => {
     let active = true;
 
-    getStoredDurable(key, fallback)
-      .then((saved) => {
+    const refresh = () =>
+      getStoredDurable(key, fallback).then((saved) => {
         if (active) setValue(normalize(saved));
-      })
+      });
+
+    refresh()
       .finally(() => {
         if (active) setReady(true);
       });
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pm-vikas-remote-refresh', refresh);
 
     return () => {
       active = false;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pm-vikas-remote-refresh', refresh);
     };
   }, [key]);
 
@@ -481,16 +556,22 @@ export function usePortfolioData() {
   useEffect(() => {
     let active = true;
 
-    getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO)
-      .then((saved) => {
+    const refresh = () =>
+      getStoredDurable('portfolio_cms_v1', DEFAULT_PORTFOLIO).then((saved) => {
         if (active) setPortfolio(saved);
-      })
+      });
+
+    refresh()
       .finally(() => {
         if (active) setReady(true);
       });
+    window.addEventListener('focus', refresh);
+    window.addEventListener('portfolio-remote-refresh', refresh);
 
     return () => {
       active = false;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('portfolio-remote-refresh', refresh);
     };
   }, []);
 

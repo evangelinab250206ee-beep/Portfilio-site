@@ -16,6 +16,52 @@ npm run dev
 
 Open http://localhost:5173
 
+## Cross-Device Tracker Sync
+
+The tracker can save to browser storage by itself, but browser storage is device-only. To see changes from another phone/laptop, connect the app to Supabase.
+
+1. Create a free Supabase project.
+2. Open Supabase SQL Editor and run:
+
+```sql
+create table if not exists public.tracker_records (
+  id text primary key,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.tracker_records enable row level security;
+
+create policy "Public tracker read"
+on public.tracker_records
+for select
+to anon
+using (true);
+
+create policy "Public tracker write"
+on public.tracker_records
+for insert
+to anon
+with check (true);
+
+create policy "Public tracker update"
+on public.tracker_records
+for update
+to anon
+using (true)
+with check (true);
+```
+
+3. Add these environment variables locally in `.env` and in Vercel Project Settings:
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_SUPABASE_TABLE=tracker_records
+```
+
+4. Redeploy. After that, edits made on one device are saved online and loaded when another device opens or focuses the tracker.
+
 ## Deploy to Vercel (Free)
 
 ### Option 1 — Vercel CLI (Recommended)
