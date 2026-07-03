@@ -732,15 +732,17 @@ function ProjectTracker({ projects, setProjects, canEdit, notify }) {
     notify('Project deleted.');
   };
 
-  const uploadPhotos = async (files) => {
+  const uploadPhotos = async (files, input) => {
     if (!selectedProject) return;
     const uploads = await readFiles(files, 'image');
+    if (!uploads.length) return;
     setProjects(
       projects.map((project) =>
         project.id === selectedProject.id ? { ...project, photos: [...project.photos, ...uploads] } : project
       )
     );
-    notify('Photo uploaded.');
+    if (input) input.value = '';
+    notify(`${uploads.length} photo${uploads.length === 1 ? '' : 's'} uploaded.`);
   };
 
   const removePhoto = (photoId) => {
@@ -872,7 +874,7 @@ function ProjectTracker({ projects, setProjects, canEdit, notify }) {
             {canEdit && (
               <label className="upload-box">
                 Upload project photos
-                <input type="file" accept="image/*" multiple onChange={(e) => uploadPhotos(e.target.files)} />
+                <input type="file" accept="image/*" multiple onChange={(e) => uploadPhotos(e.target.files, e.target)} />
               </label>
             )}
             <div className="photo-grid">
@@ -916,8 +918,9 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
     setDraft(null);
   };
 
-  const uploadDocuments = async (assignmentId, files) => {
+  const uploadDocuments = async (assignmentId, files, input) => {
     const uploads = await readFiles(files);
+    if (!uploads.length) return;
     setAssignments(
       assignments.map((assignment) =>
         assignment.id === assignmentId
@@ -925,7 +928,8 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
           : assignment
       )
     );
-    notify('File uploaded.');
+    if (input) input.value = '';
+    notify(`${uploads.length} file${uploads.length === 1 ? '' : 's'} uploaded.`);
   };
 
   const removeDocument = (assignmentId, docId) => {
@@ -1018,11 +1022,11 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                   <button className="action-btn" type="button" onClick={() => setDraft(assignment)}>Edit</button>
                   <label className="action-btn upload-inline">
                     Upload Files
-                    <input type="file" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
+                    <input type="file" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files, e.target)} />
                   </label>
                   <label className="action-btn upload-inline">
                     Upload Folder
-                    <input type="file" multiple webkitdirectory="" directory="" onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
+                    <input type="file" multiple webkitdirectory="" directory="" onChange={(e) => uploadDocuments(assignment.id, e.target.files, e.target)} />
                   </label>
                   <button className="delete-btn" type="button" onClick={() => setAssignments(assignments.filter((item) => item.id !== assignment.id))}>Delete</button>
                 </div>

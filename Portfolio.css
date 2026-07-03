@@ -664,6 +664,14 @@
   margin-bottom: 0;
 }
 
+.cms-storage-note {
+  grid-column: span 2;
+  margin: -0.15rem 0 0;
+  color: var(--text3);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; padding: 3rem 1.5rem 2rem; gap: 2rem; }
   .hero-aside { display: none; }
@@ -673,5 +681,6 @@
   .cms-form > textarea,
   .cms-form label,
   .cms-form .cms-upload,
+  .cms-storage-note,
   .cms-form .btn-primary { grid-column: auto; }
 }

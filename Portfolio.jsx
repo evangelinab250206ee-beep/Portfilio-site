@@ -21,17 +21,25 @@ export default function Portfolio() {
     setCmsOpen(false)
   }
 
-  const uploadPhotos = async (files) => {
+  const uploadPhotos = async (files, input) => {
     const photos = await readFiles(files, 'image')
+    if (!photos.length) return
     setPortfolio((current) => ({ ...current, photos: [...current.photos, ...photos] }))
     setDraft((current) => ({ ...current, photos: [...current.photos, ...photos] }))
+    if (input) input.value = ''
   }
 
-  const uploadProfilePhoto = async (files) => {
+  const uploadProfilePhoto = async (files, input) => {
     const photos = await readFiles(files, 'image')
     if (!photos.length) return
     setPortfolio((current) => ({ ...current, photos: [photos[0], ...current.photos] }))
     setDraft((current) => ({ ...current, photos: [photos[0], ...current.photos] }))
+    if (input) input.value = ''
+  }
+
+  const removePhoto = (photoId) => {
+    setPortfolio((current) => ({ ...current, photos: current.photos.filter((photo) => photo.id !== photoId) }))
+    setDraft((current) => ({ ...current, photos: current.photos.filter((photo) => photo.id !== photoId) }))
   }
 
   const updateDraftFromText = (field, value, parser) => {
@@ -99,7 +107,7 @@ export default function Portfolio() {
                   </div>
                 </>
               )}
-              <input type="file" accept="image/*" onChange={(event) => uploadProfilePhoto(event.target.files)} />
+              <input type="file" accept="image/*" onChange={(event) => uploadProfilePhoto(event.target.files, event.target)} />
               <span className="profile-upload-action">Change Photo</span>
             </label>
             <div className="profile-tag"><span className="tag-dot" />Open to Opportunities</div>
@@ -183,6 +191,28 @@ export default function Portfolio() {
         </div>
       </section>
 
+      <section className="section" id="gallery">
+        <div className="section-header">
+          <span className="section-tag">Photo Gallery</span>
+          <h2 className="section-title">Uploaded Photos</h2>
+        </div>
+        <div className="gallery-grid">
+          {portfolio.photos.length ? (
+            portfolio.photos.map((photo) => (
+              <div className="gallery-card" key={photo.id}>
+                <img src={photo.dataUrl} alt={photo.name || portfolio.name} />
+                <div>
+                  <span>{photo.name || 'Portfolio photo'}</span>
+                  <button type="button" onClick={() => removePhoto(photo.id)}>Remove</button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="gallery-empty">No uploaded photos yet. Use Manage Portfolio to add images.</div>
+          )}
+        </div>
+      </section>
+
       <section className="section contact-section" id="contact">
         <div className="contact-inner">
           <span className="section-tag">Get In Touch</span>
@@ -248,8 +278,11 @@ export default function Portfolio() {
               </label>
               <label className="gallery-upload cms-upload">
                 Add Photos
-                <input type="file" accept="image/*" multiple onChange={(event) => uploadPhotos(event.target.files)} />
+                <input type="file" accept="image/*" multiple onChange={(event) => uploadPhotos(event.target.files, event.target)} />
               </label>
+              <p className="cms-storage-note">
+                Uploaded photos are saved in this browser and will show in the gallery here. To make them public for every visitor, add the image files to the project and deploy again.
+              </p>
               <button className="btn-primary" type="submit">Save Portfolio</button>
             </form>
           </div>
