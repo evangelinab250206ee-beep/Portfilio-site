@@ -1246,6 +1246,48 @@
   letter-spacing: 0.08em;
 }
 
+.pm-vikas-container .file-preview-modal {
+  width: min(920px, 100%);
+  max-height: min(760px, calc(100vh - 2rem));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.pm-vikas-container .file-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.pm-vikas-container .file-preview-head p {
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  color: var(--pm-text3);
+  font-size: 0.78rem;
+}
+
+.pm-vikas-container .code-preview {
+  min-height: 260px;
+  max-height: 560px;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  background: rgba(5, 8, 13, 0.78);
+  border: 1px solid var(--pm-border);
+  border-radius: 6px;
+  color: #e5edf7;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.pm-vikas-container .code-preview code {
+  font: inherit;
+}
+
 .pm-vikas-container .assignment-footer {
   color: var(--pm-text3);
 }

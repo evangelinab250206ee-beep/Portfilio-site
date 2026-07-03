@@ -197,6 +197,35 @@ const fileExtension = (fileName) => {
   return extension && extension !== fileName ? extension.toUpperCase() : 'FILE';
 };
 
+const PREVIEWABLE_EXTENSIONS = new Set([
+  'TXT', 'MD', 'CSV', 'JSON', 'JS', 'JSX', 'TS', 'TSX', 'HTML', 'CSS', 'SCSS',
+  'PY', 'JAVA', 'C', 'CPP', 'CS', 'PHP', 'RB', 'GO', 'RS', 'SQL', 'XML', 'YAML',
+  'YML', 'ENV', 'SH', 'BAT', 'PS1', 'LOG',
+]);
+
+const canPreviewFile = (file) =>
+  file?.type?.startsWith('text/') ||
+  file?.type === 'application/json' ||
+  PREVIEWABLE_EXTENSIONS.has(fileExtension(file?.name));
+
+const readDataUrlText = (dataUrl) => {
+  const [, payload = ''] = dataUrl.split(',');
+  try {
+    return decodeURIComponent(
+      atob(payload)
+        .split('')
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join('')
+    );
+  } catch {
+    try {
+      return atob(payload);
+    } catch {
+      return 'Preview is not available for this file.';
+    }
+  }
+};
+
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
@@ -871,6 +900,7 @@ function ProjectTracker({ projects, setProjects, canEdit, notify }) {
 
 function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searchQuery }) {
   const [draft, setDraft] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
 
   const saveAssignment = (event) => {
     event.preventDefault();
@@ -1000,6 +1030,7 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
               <div className="document-list">
                 {assignment.documents.map((doc) => {
                   const image = isImageUpload(doc);
+                  const previewable = canPreviewFile(doc);
 
                   return (
                     <div className={`document-item ${image ? 'image-post' : 'file-post'}`} key={doc.id}>
@@ -1019,6 +1050,11 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                         <span>{Math.round((doc.size || 0) / 1024)} KB</span>
                       </div>
                       {doc.path && doc.path !== doc.name && <p className="folder-path">{doc.path}</p>}
+                      {previewable && (
+                        <button className="action-btn" type="button" onClick={() => setPreviewFile(doc)}>
+                          Preview
+                        </button>
+                      )}
                       {canEdit && <button className="delete-btn" type="button" onClick={() => removeDocument(assignment.id, doc.id)}>Remove</button>}
                     </div>
                   );
@@ -1028,6 +1064,24 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
           );
         })}
       </div>
+
+      {previewFile && (
+        <div className="edit-modal-backdrop" onClick={() => setPreviewFile(null)}>
+          <Card className="file-preview-modal" role="dialog" aria-modal="true" aria-labelledby="file-preview-title" onClick={(event) => event.stopPropagation()}>
+            <div className="file-preview-head">
+              <div>
+                <h3 id="file-preview-title" className="card-title">{previewFile.name}</h3>
+                {previewFile.path && <p>{previewFile.path}</p>}
+              </div>
+              <div className="record-actions">
+                <a className="action-btn" href={previewFile.dataUrl} download={previewFile.name}>Download</a>
+                <button className="delete-btn" type="button" onClick={() => setPreviewFile(null)}>Close</button>
+              </div>
+            </div>
+            <pre className="code-preview"><code>{readDataUrlText(previewFile.dataUrl)}</code></pre>
+          </Card>
+        </div>
+      )}
     </section>
   );
 }
