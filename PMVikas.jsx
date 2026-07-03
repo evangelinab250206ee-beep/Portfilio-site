@@ -191,6 +191,11 @@ const localDateKey = (date) => {
 const isImageUpload = (file) =>
   file?.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif)$/i.test(file?.name || '');
 
+const fileExtension = (fileName) => {
+  const extension = fileName?.split('.').pop();
+  return extension && extension !== fileName ? extension.toUpperCase() : 'FILE';
+};
+
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
@@ -889,7 +894,7 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
           : assignment
       )
     );
-    notify('Document uploaded.');
+    notify('File uploaded.');
   };
 
   const removeDocument = (assignmentId, docId) => {
@@ -982,7 +987,7 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                   <button className="action-btn" type="button" onClick={() => setDraft(assignment)}>Edit</button>
                   <label className="action-btn upload-inline">
                     Upload
-                    <input type="file" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
+                    <input type="file" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
                   </label>
                   <button className="delete-btn" type="button" onClick={() => setAssignments(assignments.filter((item) => item.id !== assignment.id))}>Delete</button>
                 </div>
@@ -1001,7 +1006,7 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                         <img src={doc.dataUrl} alt={doc.name} />
                       ) : (
                         <div className="file-preview">
-                          <span>{doc.name.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                          <span>{fileExtension(doc.name)}</span>
                         </div>
                       )}
                       <div className="post-caption">
