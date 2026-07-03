@@ -235,6 +235,7 @@ export const getStored = (key, fallback) => {
 const DB_NAME = 'pm-vikas-durable-storage';
 const DB_VERSION = 1;
 const DB_STORE = 'records';
+const META_SUFFIX = '__updatedAt';
 
 const canUseBrowserStorage = () => typeof window !== 'undefined';
 const remoteTable = import.meta.env.VITE_SUPABASE_TABLE || 'tracker_records';
@@ -266,7 +267,7 @@ const readFromRemote = async (key) => {
   if (!config || typeof fetch === 'undefined') return undefined;
 
   const response = await fetch(
-    `${config.url}/rest/v1/${remoteTable}?id=eq.${encodeURIComponent(key)}&select=value`,
+    `${config.url}/rest/v1/${remoteTable}?id=eq.${encodeURIComponent(key)}&select=value,updated_at`,
     {
       headers: remoteHeaders(config.anonKey),
     }
@@ -274,10 +275,10 @@ const readFromRemote = async (key) => {
 
   if (!response.ok) throw new Error('Remote read failed');
   const rows = await response.json();
-  return rows[0]?.value;
+  return rows[0];
 };
 
-const writeToRemote = async (key, value) => {
+const writeToRemote = async (key, value, updatedAt = new Date().toISOString()) => {
   const config = getRemoteConfig();
   if (!config || typeof fetch === 'undefined') return;
 
@@ -290,7 +291,7 @@ const writeToRemote = async (key, value) => {
     body: JSON.stringify({
       id: key,
       value,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     }),
   });
 
@@ -316,10 +317,10 @@ export const downloadPMVikasChanges = async () => {
   }
 
   const [courses, projects, assignments, blogPosts] = await Promise.all([
-    getStoredDurable(PM_SYNC_KEYS.courses, SAMPLE_COURSES),
-    getStoredDurable(PM_SYNC_KEYS.projects, SAMPLE_PROJECTS),
-    getStoredDurable(PM_SYNC_KEYS.assignments, SAMPLE_ASSIGNMENTS),
-    getStoredDurable(PM_SYNC_KEYS.blogPosts, SAMPLE_BLOG_POSTS),
+    getStoredFromRemote(PM_SYNC_KEYS.courses, SAMPLE_COURSES),
+    getStoredFromRemote(PM_SYNC_KEYS.projects, SAMPLE_PROJECTS),
+    getStoredFromRemote(PM_SYNC_KEYS.assignments, SAMPLE_ASSIGNMENTS),
+    getStoredFromRemote(PM_SYNC_KEYS.blogPosts, SAMPLE_BLOG_POSTS),
   ]);
 
   return {
@@ -385,15 +386,63 @@ const writeToIndexedDB = async (key, value) => {
   });
 };
 
+const getLocalUpdatedAt = (key) => {
+  try {
+    return localStorage.getItem(`${key}${META_SUFFIX}`);
+  } catch {
+    return null;
+  }
+};
+
+const setLocalUpdatedAt = (key, updatedAt) => {
+  try {
+    localStorage.setItem(`${key}${META_SUFFIX}`, updatedAt);
+  } catch {
+    // Metadata is only for sync conflict checks; storage can still work without it.
+  }
+};
+
+const hasLocalStorageValue = (key) => {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+};
+
+const newerThan = (first, second) => {
+  if (!first) return false;
+  if (!second) return true;
+  return Date.parse(first) > Date.parse(second);
+};
+
 const getStoredDurable = async (key, fallback) => {
   try {
     const localSaved = await readFromIndexedDB(key);
+    const hasLocalValue = localSaved !== undefined || hasLocalStorageValue(key);
     const localValue = localSaved === undefined ? getStored(key, fallback) : localSaved;
-    const remoteValue = await readFromRemote(key);
+    let localUpdatedAt = getLocalUpdatedAt(key);
 
-    if (remoteValue !== undefined) {
-      await setStoredLocal(key, remoteValue);
-      return remoteValue;
+    if (hasLocalValue && !localUpdatedAt) {
+      localUpdatedAt = new Date().toISOString();
+      setLocalUpdatedAt(key, localUpdatedAt);
+    }
+
+    const remoteRecord = await readFromRemote(key);
+
+    if (remoteRecord?.value !== undefined) {
+      const remoteUpdatedAt = remoteRecord.updated_at;
+
+      if (!hasLocalValue || newerThan(remoteUpdatedAt, localUpdatedAt)) {
+        await setStoredLocal(key, remoteRecord.value, remoteUpdatedAt);
+        return remoteRecord.value;
+      }
+
+      if (newerThan(localUpdatedAt, remoteUpdatedAt)) {
+        writeToRemote(key, localValue, localUpdatedAt).catch(() => {
+          // The next manual upload or automatic save can retry the cloud update.
+        });
+      }
     }
 
     return localValue;
@@ -407,7 +456,18 @@ const getStoredDurable = async (key, fallback) => {
   }
 };
 
-const setStoredLocal = async (key, value) => {
+const getStoredFromRemote = async (key, fallback) => {
+  const remoteRecord = await readFromRemote(key);
+
+  if (remoteRecord?.value !== undefined) {
+    await setStoredLocal(key, remoteRecord.value, remoteRecord.updated_at);
+    return remoteRecord.value;
+  }
+
+  return getStoredDurable(key, fallback);
+};
+
+const setStoredLocal = async (key, value, updatedAt = new Date().toISOString()) => {
   const serialized = JSON.stringify(value);
 
   try {
@@ -421,11 +481,13 @@ const setStoredLocal = async (key, value) => {
   }
 
   await writeToIndexedDB(key, value);
+  setLocalUpdatedAt(key, updatedAt);
 };
 
 const setStoredDurable = async (key, value) => {
-  await setStoredLocal(key, value);
-  await writeToRemote(key, value);
+  const updatedAt = new Date().toISOString();
+  await setStoredLocal(key, value, updatedAt);
+  await writeToRemote(key, value, updatedAt);
 };
 
 export const normalizeCourse = (course) => ({
