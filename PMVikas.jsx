@@ -188,6 +188,9 @@ const localDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const isImageUpload = (file) =>
+  file?.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif)$/i.test(file?.name || '');
+
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const endOfMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
@@ -840,7 +843,15 @@ function ProjectTracker({ projects, setProjects, canEdit, notify }) {
             <div className="photo-grid">
               {selectedProject.photos.map((photo) => (
                 <div className="photo-item" key={photo.id}>
+                  <div className="post-topline">
+                    <span>{selectedProject.title}</span>
+                    <a href={photo.dataUrl} download={photo.name}>Download</a>
+                  </div>
                   <img src={photo.dataUrl} alt={photo.name} />
+                  <div className="post-caption">
+                    <strong>{photo.name}</strong>
+                    <span>{Math.round((photo.size || 0) / 1024)} KB</span>
+                  </div>
                   {canEdit && <button className="delete-btn" type="button" onClick={() => removePhoto(photo.id)}>Remove</button>}
                 </div>
               ))}
@@ -971,18 +982,36 @@ function AssignmentTracker({ assignments, setAssignments, canEdit, notify, searc
                   <button className="action-btn" type="button" onClick={() => setDraft(assignment)}>Edit</button>
                   <label className="action-btn upload-inline">
                     Upload
-                    <input type="file" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
+                    <input type="file" accept="image/*,.pdf,.doc,.docx,.ppt,.pptx" multiple onChange={(e) => uploadDocuments(assignment.id, e.target.files)} />
                   </label>
                   <button className="delete-btn" type="button" onClick={() => setAssignments(assignments.filter((item) => item.id !== assignment.id))}>Delete</button>
                 </div>
               )}
               <div className="document-list">
-                {assignment.documents.map((doc) => (
-                  <div className="document-item" key={doc.id}>
-                    <a href={doc.dataUrl} download={doc.name}>{doc.name}</a>
-                    {canEdit && <button className="delete-btn" type="button" onClick={() => removeDocument(assignment.id, doc.id)}>Remove</button>}
-                  </div>
-                ))}
+                {assignment.documents.map((doc) => {
+                  const image = isImageUpload(doc);
+
+                  return (
+                    <div className={`document-item ${image ? 'image-post' : 'file-post'}`} key={doc.id}>
+                      <div className="post-topline">
+                        <span>{assignment.subject || 'Assignment'}</span>
+                        <a href={doc.dataUrl} download={doc.name}>Download</a>
+                      </div>
+                      {image ? (
+                        <img src={doc.dataUrl} alt={doc.name} />
+                      ) : (
+                        <div className="file-preview">
+                          <span>{doc.name.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                        </div>
+                      )}
+                      <div className="post-caption">
+                        <strong>{doc.name}</strong>
+                        <span>{Math.round((doc.size || 0) / 1024)} KB</span>
+                      </div>
+                      {canEdit && <button className="delete-btn" type="button" onClick={() => removeDocument(assignment.id, doc.id)}>Remove</button>}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           );
