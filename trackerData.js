@@ -416,24 +416,21 @@ const newerThan = (first, second) => {
   return Date.parse(first) > Date.parse(second);
 };
 
+const hasTimestamp = (value) => Boolean(value && !Number.isNaN(Date.parse(value)));
+
 const getStoredDurable = async (key, fallback) => {
   try {
     const localSaved = await readFromIndexedDB(key);
     const hasLocalValue = localSaved !== undefined || hasLocalStorageValue(key);
     const localValue = localSaved === undefined ? getStored(key, fallback) : localSaved;
-    let localUpdatedAt = getLocalUpdatedAt(key);
-
-    if (hasLocalValue && !localUpdatedAt) {
-      localUpdatedAt = new Date().toISOString();
-      setLocalUpdatedAt(key, localUpdatedAt);
-    }
+    const localUpdatedAt = getLocalUpdatedAt(key);
 
     const remoteRecord = await readFromRemote(key);
 
     if (remoteRecord?.value !== undefined) {
       const remoteUpdatedAt = remoteRecord.updated_at;
 
-      if (!hasLocalValue || newerThan(remoteUpdatedAt, localUpdatedAt)) {
+      if (!hasLocalValue || !hasTimestamp(localUpdatedAt) || newerThan(remoteUpdatedAt, localUpdatedAt)) {
         await setStoredLocal(key, remoteRecord.value, remoteUpdatedAt);
         return remoteRecord.value;
       }
